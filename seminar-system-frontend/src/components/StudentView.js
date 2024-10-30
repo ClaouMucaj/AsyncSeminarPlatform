@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, Typography, Container, Grid, CardMedia, Button, Box } from '@mui/material';
+import { Card, CardContent, Typography, Container, Grid, CardMedia, Button, Box, Rating } from '@mui/material';
 import api from '../api';
 
 const StudentView = () => {
@@ -9,14 +9,29 @@ const StudentView = () => {
 
   useEffect(() => {
     const loggedInUser = JSON.parse(localStorage.getItem('user'));
-    setUser(loggedInUser);
+    if (loggedInUser) {
+      setUser(loggedInUser);
+    }
 
     const fetchSeminars = async () => {
       try {
         const response = await api.get('/seminars');
-        setSeminars(response.data);
+        setSeminars(response.data.map(seminar => ({ ...seminar, rating: seminar.rating || 0 }))); // Default to 0 if no rating
       } catch (error) {
         console.error('Error fetching seminars:', error);
+      }
+    };
+
+    const fetchUserBalance = async () => {
+      if (loggedInUser) {
+        try {
+          const response = await api.get(`/user/${loggedInUser.id}`);
+          const updatedUser = { ...loggedInUser, balance: response.data.balance };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          setUser(updatedUser);
+        } catch (error) {
+          console.error("Error fetching user balance:", error);
+        }
       }
     };
 
@@ -24,7 +39,10 @@ const StudentView = () => {
       if (loggedInUser) {
         try {
           const response = await api.get(`/user/${loggedInUser.id}/purchases`);
-          setPurchasedSeminars(response.data.map(purchase => purchase.seminar_id));
+          setPurchasedSeminars(response.data.map(purchase => ({
+            ...purchase,
+            rating: purchase.rating ?? 0  // Default rating to 0 if not rated
+          })));
         } catch (error) {
           console.error("Error fetching purchased seminars:", error);
         }
@@ -32,6 +50,7 @@ const StudentView = () => {
     };
 
     fetchSeminars();
+    fetchUserBalance();
     fetchPurchasedSeminars();
   }, []);
 
@@ -41,9 +60,10 @@ const StudentView = () => {
     try {
       const response = await api.post(`/user/${user.id}/add-balance`);
       alert("Added 1000 euros to your account!");
+
       const updatedUser = response.data;
-      localStorage.setItem('user', JSON.stringify(updatedUser)); // Save updated user in localStorage
-      setUser(updatedUser); // Update state
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
     } catch (error) {
       console.error("Error adding balance:", error);
     }
@@ -51,7 +71,7 @@ const StudentView = () => {
 
   const handleBuy = async (id, price) => {
     if (!user) return;
-    if (user.balance < price) {
+    if (price > 0 && user.balance < price) {
       alert("Insufficient funds. Please add more money to your account.");
       return;
     }
@@ -59,19 +79,66 @@ const StudentView = () => {
     try {
       const response = await api.post(`/seminars/${id}/buy`, { user_id: user.id });
       alert(response.data.message);
-      window.location.reload(); // Reload to refresh view
+
+      if (price > 0) {
+        const updatedUser = { ...user, balance: user.balance - price };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+      }
+      setPurchasedSeminars([...purchasedSeminars, { seminar_id: id, rating: 0 }]); // Add with default rating 0
     } catch (error) {
       console.error("Error purchasing seminar:", error);
-      alert(error.response.data.error);
+      alert(error.response?.data?.error || "An error occurred while purchasing the seminar.");
+    }
+  };
+
+  const handleRate = async (id, rating) => {
+    if (!user || !hasPurchasedSeminar(id)) {
+      alert("You must purchase this seminar before rating it.");
+      return;
+    }
+  
+    if (rating === null || rating === undefined) {
+      alert("Please select a rating before submitting.");
+      return;
+    }
+  
+    try {
+      // Ensure rating and user_id are passed in the body
+      const response = await api.post(`/seminars/${id}/rate`, { rating, user_id: user.id });
+      alert("Thank you for rating!");
+  
+      // Update seminar's rating in state
+      const updatedSeminars = seminars.map(seminar =>
+        seminar.id === id
+          ? { ...seminar, rating: ((seminar.rating * seminar.rating_count) + rating) / (seminar.rating_count + 1), rating_count: seminar.rating_count + 1 }
+          : seminar
+      );
+      setSeminars(updatedSeminars);
+  
+      // Update purchasedSeminars with the new rating status
+      setPurchasedSeminars(
+        purchasedSeminars.map(purchase =>
+          purchase.seminar_id === id ? { ...purchase, rating } : purchase
+        )
+      );
+    } catch (error) {
+      console.error("Error rating seminar:", error);
+      alert(error.response?.data?.error || "An error occurred while rating the seminar.");
     }
   };
 
   const handleView = (seminar) => {
-    // Redirect to seminar details page (implementation will be needed)
+    // Redirect to seminar details page (implementation needed)
   };
 
   const hasPurchasedSeminar = (seminar_id) => {
-    return purchasedSeminars.includes(seminar_id);
+    return purchasedSeminars.some(purchase => purchase.seminar_id === seminar_id);
+  };
+
+  const hasRatedSeminar = (seminar_id) => {
+    const purchase = purchasedSeminars.find(purchase => purchase.seminar_id === seminar_id);
+    return purchase && purchase.rating !== 0; // Check if rating is non-zero
   };
 
   return (
@@ -98,6 +165,12 @@ const StudentView = () => {
                 <Typography variant="h5">{seminar.title}</Typography>
                 <Typography>{seminar.description}</Typography>
                 <Typography>Price: {seminar.price > 0 ? `${seminar.price} euros` : "Free"}</Typography>
+                <Rating
+                  value={hasRatedSeminar(seminar.id) ? purchasedSeminars.find(p => p.seminar_id === seminar.id).rating : seminar.rating} 
+                  precision={0.5}
+                  onChange={(event, newValue) => handleRate(seminar.id, newValue)}
+                  disabled={hasRatedSeminar(seminar.id)}
+                />
                 {hasPurchasedSeminar(seminar.id) || seminar.price === 0 ? (
                   <Button onClick={() => handleView(seminar)} variant="contained" color="primary">
                     View
