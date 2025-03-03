@@ -26,9 +26,12 @@ const StudentView = () => {
       if (loggedInUser) {
         try {
           const response = await api.get(`/user/${loggedInUser.id}`);
-          const updatedUser = { ...loggedInUser, balance: response.data.balance };
-          localStorage.setItem('user', JSON.stringify(updatedUser));
-          setUser(updatedUser);
+          // const updatedUser = { ...loggedInUser, balance: response.data.balance };
+          // console.log(updatedUser.balance);
+          // localStorage.setItem('user', JSON.stringify(updatedUser));
+          setUser(prevUser => ({ ...prevUser, balance: response.data.balance }));
+          // console.log(response.data.balance)
+          // setUser(updatedUser);
         } catch (error) {
           console.error("Error fetching user balance:", error);
         }
@@ -60,10 +63,10 @@ const StudentView = () => {
     try {
       const response = await api.post(`/user/${user.id}/add-balance`);
       alert("Added 1000 euros to your account!");
-
-      const updatedUser = response.data;
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      setUser(prevUser => ({ ...prevUser, balance: response.data.balance }));
+      // const updatedUser = response.data;
+      // localStorage.setItem('user', JSON.stringify(updatedUser));
+      // setUser(updatedUser);
     } catch (error) {
       console.error("Error adding balance:", error);
     }
@@ -79,12 +82,17 @@ const StudentView = () => {
     try {
       const response = await api.post(`/seminars/${id}/buy`, { user_id: user.id });
       alert(response.data.message);
-
       if (price > 0) {
-        const updatedUser = { ...user, balance: user.balance - price };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        setUser(updatedUser);
+        // ✅ Update balance from DB instead of localStorage
+        const balanceResponse = await api.get(`/user/${user.id}`);
+        setUser(prevUser => ({ ...prevUser, balance: balanceResponse.data.balance }));
       }
+      // if (price > 0) {
+      //   const updatedUser = { ...user, balance: user.balance - price };
+
+      //   localStorage.setItem('user', JSON.stringify(updatedUser));
+      //   setUser(updatedUser);
+      // }
       setPurchasedSeminars([...purchasedSeminars, { seminar_id: id, rating: 0 }]); // Add with default rating 0
     } catch (error) {
       console.error("Error purchasing seminar:", error);

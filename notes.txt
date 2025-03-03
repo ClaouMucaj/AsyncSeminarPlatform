@@ -1,0 +1,15 @@
+make install (Install all dependencies (Python + Node.js))
+
+make setup-db (for db name seminar_system.sql)
+
+make migrate (Apply Django migrations)
+
+make run (Run both Django and React servers)
+
+
+make createsuperuser(optional create a superuser)
+make clean (optional clean enviroment)
+
+
+
+npm start (και στο front και στο backend)
