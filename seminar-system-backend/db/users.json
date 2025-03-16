@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1742142495105,
+    "username": "user1",
+    "password": "user1",
+    "role": "student",
+    "balance": 1900
+  },
+  {
+    "id": 1742142517587,
+    "username": "teacher1",
+    "password": "teacher1",
+    "role": "teacher",
+    "balance": 0
+  }
+]

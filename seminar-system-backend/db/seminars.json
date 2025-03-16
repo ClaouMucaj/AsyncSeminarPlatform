@@ -1,0 +1,54 @@
+[
+  {
+    "id": 1742142567666,
+    "title": "Μάθημα 1",
+    "description": "Αυτό είναι το μάθημα 1",
+    "created_by": "1",
+    "exercises": 10,
+    "duration": 12,
+    "difficulty": "beginner",
+    "price": 100,
+    "preview_image": "/uploads/1742142567658-wallhaven-120518.jpg",
+    "rating": 2,
+    "rating_count": 1
+  },
+  {
+    "id": 1742142593181,
+    "title": "Μάθημα 2 ",
+    "description": "Αυτό το μάθημα είναι δωρεάν",
+    "created_by": "1",
+    "exercises": 2,
+    "duration": 33,
+    "difficulty": "intermediate",
+    "price": 0,
+    "preview_image": "/uploads/1742142593168-wallhaven-200084.png",
+    "rating": 3.5,
+    "rating_count": 1
+  },
+  {
+    "id": 1742143487742,
+    "title": "Μαθημα 3",
+    "description": "Αυτο ειναι το μαθημα 3 και είναι επι πληρωμή",
+    "created_by": "1",
+    "exercises": 20,
+    "duration": 14,
+    "difficulty": "expert",
+    "price": 700,
+    "preview_image": "/uploads/1742143487737-wallhaven-165387.jpg",
+    "rating": 0,
+    "rating_count": 0
+  },
+  {
+    "id": 1742143538285,
+    "title": "Μάθημα 4",
+    "description": "Αυτό είνια το 4ο μάθημα με τιμή πολύ υψηλή και καμία εικόνα (μπαίνει το Placeholder)",
+    "created_by": "1",
+    "exercises": 5,
+    "duration": 15,
+    "difficulty": "intermediate",
+    "price": 9e+23,
+    "preview_image": "/uploads/notfound.jpg",
+    "rating": 0,
+    "rating_count": 0
+  }
+]

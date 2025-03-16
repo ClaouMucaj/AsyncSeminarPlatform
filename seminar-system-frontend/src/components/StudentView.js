@@ -1,11 +1,33 @@
+// StudentView.js
+
+import LinearProgress from '@mui/material/LinearProgress';
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, Typography, Container, Grid, CardMedia, Button, Box, Rating } from '@mui/material';
+import {
+  Card,
+  CardContent,
+  Typography,
+  Container,
+  Grid,
+  CardMedia,
+  Button,
+  Box,
+  Rating,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField
+} from '@mui/material';
 import api from '../api';
 
 const StudentView = () => {
   const [seminars, setSeminars] = useState([]);
   const [user, setUser] = useState(null);
   const [purchasedSeminars, setPurchasedSeminars] = useState([]);
+  
+  // State for the seminar details modal
+  const [selectedSeminar, setSelectedSeminar] = useState(null);
+  const [progress, setProgress] = useState('');
 
   useEffect(() => {
     const loggedInUser = JSON.parse(localStorage.getItem('user'));
@@ -16,7 +38,7 @@ const StudentView = () => {
     const fetchSeminars = async () => {
       try {
         const response = await api.get('/seminars');
-        setSeminars(response.data.map(seminar => ({ ...seminar, rating: seminar.rating || 0 }))); // Default to 0 if no rating
+        setSeminars(response.data.map(seminar => ({ ...seminar, rating: seminar.rating || 0 })));
       } catch (error) {
         console.error('Error fetching seminars:', error);
       }
@@ -26,12 +48,7 @@ const StudentView = () => {
       if (loggedInUser) {
         try {
           const response = await api.get(`/user/${loggedInUser.id}`);
-          // const updatedUser = { ...loggedInUser, balance: response.data.balance };
-          // console.log(updatedUser.balance);
-          // localStorage.setItem('user', JSON.stringify(updatedUser));
           setUser(prevUser => ({ ...prevUser, balance: response.data.balance }));
-          // console.log(response.data.balance)
-          // setUser(updatedUser);
         } catch (error) {
           console.error("Error fetching user balance:", error);
         }
@@ -44,7 +61,7 @@ const StudentView = () => {
           const response = await api.get(`/user/${loggedInUser.id}/purchases`);
           setPurchasedSeminars(response.data.map(purchase => ({
             ...purchase,
-            rating: purchase.rating ?? 0  // Default rating to 0 if not rated
+            rating: purchase.rating ?? 0
           })));
         } catch (error) {
           console.error("Error fetching purchased seminars:", error);
@@ -59,14 +76,10 @@ const StudentView = () => {
 
   const handleAddBalance = async () => {
     if (!user) return;
-
     try {
       const response = await api.post(`/user/${user.id}/add-balance`);
       alert("Added 1000 euros to your account!");
       setUser(prevUser => ({ ...prevUser, balance: response.data.balance }));
-      // const updatedUser = response.data;
-      // localStorage.setItem('user', JSON.stringify(updatedUser));
-      // setUser(updatedUser);
     } catch (error) {
       console.error("Error adding balance:", error);
     }
@@ -78,22 +91,14 @@ const StudentView = () => {
       alert("Insufficient funds. Please add more money to your account.");
       return;
     }
-
     try {
       const response = await api.post(`/seminars/${id}/buy`, { user_id: user.id });
       alert(response.data.message);
       if (price > 0) {
-        // ✅ Update balance from DB instead of localStorage
         const balanceResponse = await api.get(`/user/${user.id}`);
         setUser(prevUser => ({ ...prevUser, balance: balanceResponse.data.balance }));
       }
-      // if (price > 0) {
-      //   const updatedUser = { ...user, balance: user.balance - price };
-
-      //   localStorage.setItem('user', JSON.stringify(updatedUser));
-      //   setUser(updatedUser);
-      // }
-      setPurchasedSeminars([...purchasedSeminars, { seminar_id: id, rating: 0 }]); // Add with default rating 0
+      setPurchasedSeminars([...purchasedSeminars, { seminar_id: id, rating: 0, exercises_done: 0 }]);
     } catch (error) {
       console.error("Error purchasing seminar:", error);
       alert(error.response?.data?.error || "An error occurred while purchasing the seminar.");
@@ -112,19 +117,15 @@ const StudentView = () => {
     }
   
     try {
-      // Ensure rating and user_id are passed in the body
-      const response = await api.post(`/seminars/${id}/rate`, { rating, user_id: user.id });
+      // Removed unused 'response' variable assignment to fix ESLint warning.
+      await api.post(`/seminars/${id}/rate`, { rating, user_id: user.id });
       alert("Thank you for rating!");
-  
-      // Update seminar's rating in state
       const updatedSeminars = seminars.map(seminar =>
         seminar.id === id
           ? { ...seminar, rating: ((seminar.rating * seminar.rating_count) + rating) / (seminar.rating_count + 1), rating_count: seminar.rating_count + 1 }
           : seminar
       );
       setSeminars(updatedSeminars);
-  
-      // Update purchasedSeminars with the new rating status
       setPurchasedSeminars(
         purchasedSeminars.map(purchase =>
           purchase.seminar_id === id ? { ...purchase, rating } : purchase
@@ -136,8 +137,54 @@ const StudentView = () => {
     }
   };
 
-  const handleView = (seminar) => {
-    // Redirect to seminar details page (implementation needed)
+  // Updated handleView to auto-purchase free seminars and load saved progress.
+  const handleView = async (seminar) => {
+    // If seminar is free and not already purchased, auto-purchase it.
+    if (seminar.price === 0 && !hasPurchasedSeminar(seminar.id)) {
+      try {
+        await api.post(`/seminars/${seminar.id}/buy`, { user_id: user.id });
+        // Update purchasedSeminars with default progress (0).
+        setPurchasedSeminars(prev => [...prev, { seminar_id: seminar.id, rating: 0, exercises_done: 0 }]);
+        setProgress('0');
+      } catch (error) {
+        console.error("Error auto-purchasing free seminar:", error);
+        alert("Error auto-purchasing free seminar.");
+        return;
+      }
+    } else {
+      // If already purchased, load saved progress if it exists.
+      const purchase = purchasedSeminars.find(p => p.seminar_id === seminar.id);
+      if (purchase && purchase.exercises_done !== undefined) {
+         setProgress(purchase.exercises_done.toString());
+      } else {
+         setProgress('');
+      }
+    }
+    setSelectedSeminar(seminar);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedSeminar(null);
+  };
+
+  // Save progress (number of exercises completed) by calling the backend endpoint.
+  const handleSaveProgress = async () => {
+    if (!user || !selectedSeminar) return;
+    try {
+      const response = await api.post(`/seminars/${selectedSeminar.id}/progress`, {
+        user_id: user.id,
+        exercises_done: progress
+      });
+      alert(response.data.message);
+      // Update local purchase record with saved progress.
+      setPurchasedSeminars(prev =>
+        prev.map(p => p.seminar_id === selectedSeminar.id ? { ...p, exercises_done: Number(progress) } : p)
+      );
+      handleCloseModal();
+    } catch (error) {
+      console.error("Error updating progress:", error);
+      alert(error.response?.data?.error || "An error occurred while updating progress.");
+    }
   };
 
   const hasPurchasedSeminar = (seminar_id) => {
@@ -146,7 +193,7 @@ const StudentView = () => {
 
   const hasRatedSeminar = (seminar_id) => {
     const purchase = purchasedSeminars.find(purchase => purchase.seminar_id === seminar_id);
-    return purchase && purchase.rating !== 0; // Check if rating is non-zero
+    return purchase && purchase.rating !== 0;
   };
 
   return (
@@ -172,9 +219,15 @@ const StudentView = () => {
               <CardContent>
                 <Typography variant="h5">{seminar.title}</Typography>
                 <Typography>{seminar.description}</Typography>
-                <Typography>Price: {seminar.price > 0 ? `${seminar.price} euros` : "Free"}</Typography>
+                <Typography>
+                  Price: {seminar.price > 0 ? `${seminar.price} euros` : "Free"}
+                </Typography>
                 <Rating
-                  value={hasRatedSeminar(seminar.id) ? purchasedSeminars.find(p => p.seminar_id === seminar.id).rating : seminar.rating} 
+                  value={
+                    hasRatedSeminar(seminar.id)
+                      ? purchasedSeminars.find(p => p.seminar_id === seminar.id).rating
+                      : seminar.rating
+                  } 
                   precision={0.5}
                   onChange={(event, newValue) => handleRate(seminar.id, newValue)}
                   disabled={hasRatedSeminar(seminar.id)}
@@ -193,6 +246,72 @@ const StudentView = () => {
           </Grid>
         ))}
       </Grid>
+
+      {/* Seminar Details Modal */}
+      <Dialog open={Boolean(selectedSeminar)} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+  {selectedSeminar && (
+    <>
+      <DialogTitle>{selectedSeminar.title} Details</DialogTitle>
+      <DialogContent>
+        <Typography variant="subtitle1">Description:</Typography>
+        <Typography paragraph>{selectedSeminar.description}</Typography>
+        <Typography variant="subtitle1">
+          Difficulty: {selectedSeminar.difficulty}
+        </Typography>
+        <Typography variant="subtitle1">
+          Exercises: {selectedSeminar.exercises}
+        </Typography>
+        <Typography variant="subtitle1">
+          Duration: {selectedSeminar.duration} hours
+        </Typography>
+        {/* Progress display */}
+        <Box mt={2} mb={1}>
+          <Typography variant="body2" color="textSecondary">
+            Progress: {progress || 0} / {selectedSeminar.exercises} exercises
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={selectedSeminar.exercises ? (Number(progress) / selectedSeminar.exercises) * 100 : 0}
+          />
+        </Box>
+        <TextField
+          label="Exercises Completed"
+          type="number"
+          fullWidth
+          value={progress}
+          onChange={(e) => {
+            const val = e.target.value;
+            // Ensure value is not greater than the total exercises
+            if (Number(val) > selectedSeminar.exercises) {
+              setProgress(selectedSeminar.exercises.toString());
+            } else {
+              setProgress(val);
+            }
+          }}
+          margin="normal"
+          inputProps={{ min: 0, max: selectedSeminar.exercises }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleCloseModal} color="secondary">Cancel</Button>
+        <Button
+          onClick={() => {
+            // Validate before saving
+            if (Number(progress) > selectedSeminar.exercises) {
+              alert("You cannot complete more exercises than available.");
+              return;
+            }
+            handleSaveProgress();
+          }}
+          color="primary"
+        >
+          Save Progress
+        </Button>
+      </DialogActions>
+    </>
+  )}
+</Dialog>
+
     </Container>
   );
 };

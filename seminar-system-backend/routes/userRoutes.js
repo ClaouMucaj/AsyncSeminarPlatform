@@ -1,92 +1,71 @@
+// userRoutes.js
 const express = require('express');
-const User = require('../models/user');
-const Purchase = require('../models/purchase'); // Import the Purchase model
 const router = express.Router();
+const dataStore = require('../dataStore');
 
-// User Login
-router.post('/login', async (req, res) => {
+// Login: find user in the JSON file
+router.post('/login', (req, res) => {
   const { username, password } = req.body;
-  try {
-    // Find the user by username and password
-    const user = await User.findOne({ where: { username, password } });
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid username or password' });
-    }
-
-    // Return the user object, including balance
-    res.status(200).json({
-      message: 'Login successful',
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        balance: user.balance // Include balance here
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  const users = dataStore.getUsers();
+  const user = users.find(u => u.username === username && u.password === password);
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid username or password' });
   }
+  res.status(200).json({
+    message: 'Login successful',
+    user
+  });
 });
 
-// User Registration (Sign Up)
-router.post('/signup', async (req, res) => {
+// Sign Up: create new user and store in JSON
+router.post('/signup', (req, res) => {
   const { username, password, role } = req.body;
-  try {
-    // Check if username already exists
-    const existingUser = await User.findOne({ where: { username } });
-    if (existingUser) {
-      return res.status(400).json({ error: 'Username already taken' });
-    }
-
-    // Create new user
-    const newUser = await User.create({ username, password, role, balance: 0 }); // Initialize balance to 0
-    res.status(201).json({ message: 'User created successfully', user: newUser });
-  } catch (error) {
-    console.error("Error during signup:", error);
-    res.status(500).json({ error: error.message });
+  let users = dataStore.getUsers();
+  if (users.find(u => u.username === username)) {
+    return res.status(400).json({ error: 'Username already taken' });
   }
+  const newUser = {
+    id: Date.now(), // simple unique id
+    username,
+    password,
+    role,
+    balance: 0
+  };
+  users.push(newUser);
+  dataStore.saveUsers(users);
+  res.status(201).json({ message: 'User created successfully', user: newUser });
 });
 
-
-// Get user details (for balance)
-router.get('/user/:id', async (req, res) => {
+// Get user details
+router.get('/user/:id', (req, res) => {
   const { id } = req.params;
-  try {
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(user); // Return the full user object, including balance
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  const users = dataStore.getUsers();
+  const user = users.find(u => u.id == id);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
   }
+  res.json(user);
 });
 
 // Add balance to user account
-router.post('/user/:id/add-balance', async (req, res) => {
-  const { id: user_id } = req.params;
-  try {
-    const user = await User.findByPk(user_id); // Retrieve the user by their ID
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    user.balance += 1000; // Increment the user's balance by 1000 euros
-    await user.save(); // Save the updated balance to the database
-    res.json(user); // Return the updated user object
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+router.post('/user/:id/add-balance', (req, res) => {
+  const { id } = req.params;
+  let users = dataStore.getUsers();
+  const user = users.find(u => u.id == id);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
   }
+  user.balance += 1000;
+  dataStore.saveUsers(users);
+  res.json(user);
 });
 
 // Get all purchased seminars for a user
-router.get('/user/:id/purchases', async (req, res) => {
-  const { id: user_id } = req.params;
-  try {
-    const purchases = await Purchase.findAll({ where: { user_id } });
-    res.json(purchases);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+router.get('/user/:id/purchases', (req, res) => {
+  const { id } = req.params;
+  const purchases = dataStore.getPurchases();
+  const userPurchases = purchases.filter(p => p.user_id == id);
+  res.json(userPurchases);
 });
 
 module.exports = router;
