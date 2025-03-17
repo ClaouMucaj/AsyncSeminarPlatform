@@ -20,8 +20,8 @@
     "user_id": 1742238941038,
     "seminar_id": 1742142593181,
     "completed": false,
-    "rating": null,
-    "exercises_done": 0
+    "rating": 5,
+    "exercises_done": 2
   },
   {
     "id": 1742238974871,
@@ -30,5 +30,12 @@
     "completed": false,
     "rating": 5,
     "exercises_done": 9
+  },
+  {
+    "id": 1742248405001,
+    "user_id": 1742238941038,
+    "seminar_id": 1742143487742,
+    "completed": false,
+    "rating": null
   }
 ]
