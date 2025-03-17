@@ -14,5 +14,21 @@
     "completed": false,
     "rating": 3.5,
     "exercises_done": 2
+  },
+  {
+    "id": 1742238964510,
+    "user_id": 1742238941038,
+    "seminar_id": 1742142593181,
+    "completed": false,
+    "rating": null,
+    "exercises_done": 0
+  },
+  {
+    "id": 1742238974871,
+    "user_id": 1742238941038,
+    "seminar_id": 1742142567666,
+    "completed": false,
+    "rating": 5,
+    "exercises_done": 9
   }
 ]

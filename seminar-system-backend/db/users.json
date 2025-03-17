@@ -12,5 +12,12 @@
     "password": "teacher1",
     "role": "teacher",
     "balance": 0
+  },
+  {
+    "id": 1742238941038,
+    "username": "Admin",
+    "password": "Admin1",
+    "role": "student",
+    "balance": 2900
   }
 ]
